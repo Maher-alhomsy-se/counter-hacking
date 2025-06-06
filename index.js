@@ -8,7 +8,7 @@ const WATCH_ADDRESS = process.env.WATCH_ADDRESS;
 const DESTINATION_ADDRESS = process.env.DESTINATION_ADDRESS;
 
 let lastBalance = 0n;
-const MIN_REQUIRED_BALANCE = ethers.parseEther('0.002'); // 0.002 ETH
+const MIN_REQUIRED_BALANCE = ethers.parseEther('0.0002'); // 0.002 ETH
 
 async function checkBalanceAndTransfer() {
   try {
@@ -59,4 +59,4 @@ async function checkBalanceAndTransfer() {
   }
 }
 
-setInterval(checkBalanceAndTransfer, 2000);
+setInterval(checkBalanceAndTransfer, 1000);
