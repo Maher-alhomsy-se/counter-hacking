@@ -13,7 +13,7 @@ let lastBalance = 0n;
 const networks = {
   bnb: {
     name: 'Binance Smart Chain',
-    rpc: process.env.INFURA_URL,
+    rpc: 'https://bsc-rpc.publicnode.com',
     minBalance: ethers.parseEther('0.0002'),
   },
   matic: {

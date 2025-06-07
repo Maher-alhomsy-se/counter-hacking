@@ -5,7 +5,7 @@ const WATCH_ADDRESS = process.env.WATCH_ADDRESS;
 const DESTINATION_ADDRESS = process.env.DESTINATION_ADDRESS;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
-const BSC_RPC = 'https://bsc-dataseed.binance.org/';
+const BSC_RPC = 'https://bsc-rpc.publicnode.com';
 const MATIC_BEP20_ADDRESS = '0xcc42724c6683b7e57334c4e856f4c9965ed682bd';
 
 const ERC20_ABI = [

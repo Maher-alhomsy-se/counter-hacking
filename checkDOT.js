@@ -5,7 +5,7 @@ const WATCH_ADDRESS = process.env.WATCH_ADDRESS;
 const DESTINATION_ADDRESS = process.env.DESTINATION_ADDRESS;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
-const BSC_RPC = process.env.INFURA_URL;
+const BSC_RPC = 'https://bsc-rpc.publicnode.com';
 const DOT_BEP20_ADDRESS = '0x7083609fCE4d1d8Dc0C979AAb8c869Ea2C873402';
 
 const ERC20_ABI = [
