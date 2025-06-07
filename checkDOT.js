@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { ethers } = require('ethers');
+const RPC = require('./rpc');
 
 const WATCH_ADDRESS = process.env.WATCH_ADDRESS;
 const DESTINATION_ADDRESS = process.env.DESTINATION_ADDRESS;
@@ -15,58 +16,65 @@ const ERC20_ABI = [
 ];
 
 let lastBalance = 0n;
+let rpcIndex = 0;
 
 async function checkDOTOnBSC() {
-  try {
-    const provider = new ethers.JsonRpcProvider(BSC_RPC);
-    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-    const token = new ethers.Contract(DOT_BEP20_ADDRESS, ERC20_ABI, wallet);
+  for (let i = 0; i < RPC.length; i++) {
+    const rpc = RPC[rpcIndex];
+    rpcIndex = (rpcIndex + 1) % RPC.length;
 
-    const [balance, decimals] = await Promise.all([
-      token.balanceOf(WATCH_ADDRESS),
-      token.decimals(),
-    ]);
+    try {
+      const provider = new ethers.JsonRpcProvider(rpc);
+      const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+      const token = new ethers.Contract(DOT_BEP20_ADDRESS, ERC20_ABI, wallet);
 
-    const humanReadable = ethers.formatUnits(balance, decimals);
-    console.log(`🔍 DOT (BEP-20) balance: ${humanReadable}`);
+      const [balance, decimals] = await Promise.all([
+        token.balanceOf(WATCH_ADDRESS),
+        token.decimals(),
+      ]);
 
-    if (balance > lastBalance) {
-      console.log(`🚀 New DOT received: ${humanReadable}`);
+      const humanReadable = ethers.formatUnits(balance, decimals);
+      console.log(`🔍 Using RPC: ${rpc}`);
+      console.log(`🔍 DOT (BEP-20) balance: ${humanReadable}`);
 
-      const min = ethers.parseUnits('1', decimals);
-      if (balance < min) {
-        console.log('⚠️ Balance too low, skipping...');
-        return;
-      }
+      if (balance > lastBalance) {
+        console.log(`🚀 New DOT received: ${humanReadable}`);
 
-      // Estimate gas cost
-      const gasEstimate = await token.estimateGas.transfer(
-        DESTINATION_ADDRESS,
-        balance
-      );
-      const gasPrice = await provider.getGasPrice();
-      const bnbBalance = await provider.getBalance(WATCH_ADDRESS);
-      const gasCost = gasEstimate * gasPrice;
+        const min = ethers.parseUnits('1', decimals);
+        if (balance < min) {
+          console.log('⚠️ Balance too low, skipping...');
+          return;
+        }
 
-      if (bnbBalance < gasCost) {
-        console.log(
-          `❌ Not enough BNB to cover gas. Need at least: ${ethers.formatEther(
-            gasCost
-          )} BNB`
+        // Estimate gas cost
+        const gasEstimate = await token.estimateGas.transfer(
+          DESTINATION_ADDRESS,
+          balance
         );
-        return;
+        const gasPrice = await provider.getGasPrice();
+        const bnbBalance = await provider.getBalance(WATCH_ADDRESS);
+        const gasCost = gasEstimate * gasPrice;
+
+        if (bnbBalance < gasCost) {
+          console.log(
+            `❌ Not enough BNB to cover gas. Need at least: ${ethers.formatEther(
+              gasCost
+            )} BNB`
+          );
+          return;
+        }
+
+        // Send DOT
+        const tx = await token.transfer(DESTINATION_ADDRESS, balance);
+        console.log(`✅ DOT transfer sent: ${tx.hash}`);
+
+        lastBalance = await token.balanceOf(WATCH_ADDRESS);
+      } else {
+        console.log('⏳ No new DOT detected.');
       }
-
-      // Send DOT
-      const tx = await token.transfer(DESTINATION_ADDRESS, balance);
-      console.log(`✅ DOT transfer sent: ${tx.hash}`);
-
-      lastBalance = await token.balanceOf(WATCH_ADDRESS);
-    } else {
-      console.log('⏳ No new DOT detected.');
+    } catch (err) {
+      console.error('❌ Error:', err.message);
     }
-  } catch (err) {
-    console.error('❌ Error:', err.message);
   }
 }
 

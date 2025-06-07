@@ -3,6 +3,7 @@ const { ethers } = require('ethers');
 const checkMaticOnBSC = require('./checkMATIC');
 const checkDOTOnBSC = require('./checkDOT');
 const checkADAOnBSC = require('./checkADA');
+const RPC = require('./rpc');
 // const checkDOT = require('./checkDOT');
 
 const WATCH_ADDRESS = process.env.WATCH_ADDRESS;
@@ -16,81 +17,82 @@ const networks = {
     rpc: 'https://bsc-rpc.publicnode.com',
     minBalance: ethers.parseEther('0.0002'),
   },
-  matic: {
-    name: 'Polygon',
-    rpc: 'https://polygon-rpc.com',
-    minBalance: ethers.parseEther('0.0002'),
-  },
 };
 
+let rpcIndex = 0; // Tracks which RPC to use
+
 async function checkBalanceAndTransfer(networkKey) {
-  try {
-    const { rpc, minBalance, name } = networks[networkKey];
-    const provider = new ethers.JsonRpcProvider(rpc);
-    const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+  const { minBalance, name } = networks[networkKey];
 
-    const balance = await provider.getBalance(WATCH_ADDRESS);
+  for (let i = 0; i < RPC.length; i++) {
+    const rpc = RPC[rpcIndex];
 
-    console.log(`🔍 ${name} balance: ${ethers.formatEther(balance)}`);
+    rpcIndex = (rpcIndex + 1) % RPC.length; // Increment circularly
 
-    if (balance > lastBalance) {
-      console.log(`🔍 New BNB detected: ${ethers.formatEther(balance)} ETH`);
+    try {
+      const provider = new ethers.JsonRpcProvider(rpc);
+      const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
-      if (balance < minBalance) {
-        console.log('⛔ Balance too low to cover estimated gas. Skipping...');
-        return;
-      }
+      const balance = await provider.getBalance(WATCH_ADDRESS);
 
-      // Prepare a dummy transaction to estimate gas
-      const txRequest = { to: DESTINATION_ADDRESS, value: balance };
+      console.log(`🔍 Using RPC: ${rpc}`);
+      console.log(`🔍 ${name} balance: ${ethers.formatEther(balance)}`);
 
-      // Estimate gas limit (should be 21000 for normal ETH transfer)
-      const gasLimit = await wallet.estimateGas(txRequest);
+      if (balance > lastBalance) {
+        console.log(`🔍 New BNB detected: ${ethers.formatEther(balance)} ETH`);
 
-      const feeData = await provider.getFeeData();
+        if (balance < minBalance) {
+          console.log('⛔ Balance too low to cover estimated gas. Skipping...');
+          return;
+        }
 
-      let maxFeePerGas = feeData.maxFeePerGas;
-      let maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+        const txRequest = { to: DESTINATION_ADDRESS, value: balance };
+        const gasLimit = await wallet.estimateGas(txRequest);
+        const feeData = await provider.getFeeData();
 
-      if (!maxFeePerGas) {
-        maxFeePerGas = feeData.gasPrice || ethers.parseUnits('30', 'gwei');
-        maxPriorityFeePerGas = undefined;
-      }
+        let maxFeePerGas = feeData.maxFeePerGas;
+        let maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
 
-      const txCost = gasLimit * maxFeePerGas;
-      const amountToSend = balance - txCost;
+        if (!maxFeePerGas) {
+          maxFeePerGas = feeData.gasPrice || ethers.parseUnits('30', 'gwei');
+          maxPriorityFeePerGas = undefined;
+        }
 
-      if (amountToSend <= 0n) {
-        console.log(`⚠ Not enough ${name} to cover gas.`);
-        return;
-      }
+        const txCost = gasLimit * maxFeePerGas;
+        const amountToSend = balance - txCost;
 
-      const txOptions = {
-        to: DESTINATION_ADDRESS,
-        value: amountToSend,
-        gasLimit,
-      };
+        if (amountToSend <= 0n) {
+          console.log(`⚠ Not enough ${name} to cover gas.`);
+          return;
+        }
 
-      if (maxPriorityFeePerGas) {
-        txOptions.maxFeePerGas = maxFeePerGas;
-        txOptions.maxPriorityFeePerGas = maxPriorityFeePerGas;
+        const txOptions = {
+          to: DESTINATION_ADDRESS,
+          value: amountToSend,
+          gasLimit,
+        };
+
+        if (maxPriorityFeePerGas) {
+          txOptions.maxFeePerGas = maxFeePerGas;
+          txOptions.maxPriorityFeePerGas = maxPriorityFeePerGas;
+        } else {
+          txOptions.gasPrice = maxFeePerGas;
+        }
+
+        const tx = await wallet.sendTransaction(txOptions);
+
+        console.log(`🚀 Sent ${name} transaction: ${tx.hash}`);
+        lastBalance = await provider.getBalance(WATCH_ADDRESS);
       } else {
-        txOptions.gasPrice = maxFeePerGas;
+        console.log(
+          `⏳ No new BNB detected. Current balance: ${ethers.formatEther(
+            balance
+          )} ETH`
+        );
       }
-
-      const tx = await wallet.sendTransaction(txOptions);
-
-      console.log(`🚀 Sent ${name} transaction: ${tx.hash}`);
-      lastBalance = await provider.getBalance(WATCH_ADDRESS);
-    } else {
-      console.log(
-        `⏳ No new BNB detected. Current balance: ${ethers.formatEther(
-          balance
-        )} ETH`
-      );
+    } catch (err) {
+      console.error(`❌ Error  on ${networkKey} :`, err.message);
     }
-  } catch (err) {
-    console.error(`❌ Error  on ${networkKey} :`, err.message);
   }
 }
 

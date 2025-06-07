@@ -1,6 +1,8 @@
 require('dotenv').config();
 const { ethers } = require('ethers');
 
+const RPC = require('./rpc');
+
 const WATCH_ADDRESS = process.env.WATCH_ADDRESS;
 const DESTINATION_ADDRESS = process.env.DESTINATION_ADDRESS;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
@@ -15,40 +17,46 @@ const ERC20_ABI = [
 ];
 
 let lastBalance = 0n;
+let rpcIndex = 0;
 
 async function checkMaticOnBSC() {
-  try {
-    const provider = new ethers.JsonRpcProvider(BSC_RPC);
-    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-    const token = new ethers.Contract(MATIC_BEP20_ADDRESS, ERC20_ABI, wallet);
+  for (let i = 0; i < RPC.length; i++) {
+    const rpc = RPC[rpcIndex];
+    rpcIndex = (rpcIndex + 1) % RPC.length;
 
-    const [balance, decimals] = await Promise.all([
-      token.balanceOf(WATCH_ADDRESS),
-      token.decimals(),
-    ]);
+    try {
+      const provider = new ethers.JsonRpcProvider(rpc);
+      const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+      const token = new ethers.Contract(MATIC_BEP20_ADDRESS, ERC20_ABI, wallet);
 
-    const humanReadable = ethers.formatUnits(balance, decimals);
+      const [balance, decimals] = await Promise.all([
+        token.balanceOf(WATCH_ADDRESS),
+        token.decimals(),
+      ]);
 
-    console.log(`🔍 MATIC (BEP-20) balance: ${humanReadable}`);
+      const humanReadable = ethers.formatUnits(balance, decimals);
+      console.log(`🔍 Using RPC: ${rpc}`);
+      console.log(`🔍 MATIC (BEP-20) balance: ${humanReadable}`);
 
-    if (balance > lastBalance) {
-      console.log(`🚀 New MATIC received: ${humanReadable}`);
+      if (balance > lastBalance) {
+        console.log(`🚀 New MATIC received: ${humanReadable}`);
 
-      const min = ethers.parseUnits('1', decimals); // Minimum 0.1 MATIC
-      if (balance < min) {
-        console.log('⚠️ Balance too low, skipping...');
-        return;
+        const min = ethers.parseUnits('1', decimals); // Minimum 0.1 MATIC
+        if (balance < min) {
+          console.log('⚠️ Balance too low, skipping...');
+          return;
+        }
+
+        const tx = await token.transfer(DESTINATION_ADDRESS, balance);
+        console.log(`✅ Transfer sent: ${tx.hash}`);
+
+        lastBalance = await token.balanceOf(WATCH_ADDRESS);
+      } else {
+        console.log('⏳ No new MATIC detected.');
       }
-
-      const tx = await token.transfer(DESTINATION_ADDRESS, balance);
-      console.log(`✅ Transfer sent: ${tx.hash}`);
-
-      lastBalance = await token.balanceOf(WATCH_ADDRESS);
-    } else {
-      console.log('⏳ No new MATIC detected.');
+    } catch (err) {
+      console.error('❌ Error:', err.message);
     }
-  } catch (err) {
-    console.error('❌ Error:', err.message);
   }
 }
 
