@@ -15,7 +15,7 @@ const networks = {
   bnb: {
     name: 'Binance Smart Chain',
     rpc: process.env.INFURA_URL,
-    minBalance: ethers.parseEther('0.0002'),
+    minBalance: ethers.parseEther('0.0001'),
   },
 };
 
