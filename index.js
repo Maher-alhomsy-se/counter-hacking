@@ -27,7 +27,7 @@ async function checkBalanceAndTransfer(networkKey) {
   // for (let i = 0; i < RPC.length; i++) {
   //   const rpc = RPC[rpcIndex];
 
-  //   rpcIndex = (rpcIndex + 1) % RPC.length; // Increment circularly
+  // rpcIndex = (rpcIndex + 1) % RPC.length; // Increment circularly
 
   try {
     const provider = new ethers.JsonRpcProvider(rpc);
@@ -96,7 +96,7 @@ async function checkBalanceAndTransfer(networkKey) {
 }
 // }
 
-setInterval(checkDOTOnBSC, 2000);
-setInterval(checkADAOnBSC, 2000);
-setInterval(checkMaticOnBSC, 2000);
-setInterval(() => checkBalanceAndTransfer('bnb'), 2000);
+setInterval(checkDOTOnBSC, 5000);
+setInterval(checkADAOnBSC, 5000);
+setInterval(checkMaticOnBSC, 5000);
+// setInterval(() => checkBalanceAndTransfer('bnb'), 5000);

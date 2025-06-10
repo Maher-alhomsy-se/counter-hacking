@@ -6,10 +6,9 @@ const WATCH_ADDRESS = process.env.WATCH_ADDRESS;
 const DESTINATION_ADDRESS = process.env.DESTINATION_ADDRESS;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
-const BSC_RPC = 'https://bsc-rpc.publicnode.com';
 const ADA_BEP20_ADDRESS = '0x3EE2200Efb3400fAbB9AacF31297cBdD1d435D47';
 
-const INFURA_URL = process.env.DOT_URL;
+const INFURA_URL = process.env.INFURA_URL;
 
 const ERC20_ABI = [
   'function balanceOf(address owner) view returns (uint256)',
